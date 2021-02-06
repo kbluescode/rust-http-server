@@ -37,7 +37,7 @@ impl<'a> Worker<'a> {
     }
   }
 
-  pub fn handler(self) -> impl Fn() + Send {
+  pub fn handler(&self) -> impl FnOnce() + Send {
     let tcp_receiver = Arc::clone(self.tcp_receiver);
     let shutdown_receiver = Arc::clone(self.shutdown_receiver);
     let i = self.num;
@@ -74,7 +74,7 @@ impl<'a> Worker<'a> {
 }
 
 pub struct Listener<'a> {
-  listener: TcpListener,
+  listener: Arc<TcpListener>,
   tcp_sender: Sender<TcpStream>,
   shutdown_receiver: &'a SharableReceiver<bool>,
 }
@@ -86,15 +86,15 @@ impl<'a> Listener<'a> {
     shutdown_receiver: &'a SharableReceiver<bool>,
   ) -> Listener {
     Listener {
-      listener,
+      listener: Arc::new(listener),
       tcp_sender,
       shutdown_receiver,
     }
   }
 
-  pub fn handler(self) -> impl Fn() + Send {
-    let listener = self.listener;
-    let tcp_sender = self.tcp_sender;
+  pub fn handler(&self) -> impl FnOnce() + Send {
+    let listener = Arc::clone(&self.listener);
+    let tcp_sender = self.tcp_sender.clone();
     let shutdown_receiver = Arc::clone(&self.shutdown_receiver);
     Box::new(move || {
       println!("Hello, listener!");
@@ -121,4 +121,5 @@ impl<'a> Listener<'a> {
       }
       println!("Goodbye, listener!");
     })
-  }}
+  }
+}
